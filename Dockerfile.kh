@@ -1,0 +1,72 @@
+FROM node:22-bookworm
+
+## BEGIN CUSTOM
+# Install all apt packages in one layer (Chrome + utilities)
+RUN apt-get update && \
+    apt-get install -y sudo socat jq && \
+    curl -L -o /tmp/google-chrome-stable_current_amd64.deb \
+        https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb && \
+    apt-get install -y --fix-broken /tmp/google-chrome-stable_current_amd64.deb && \
+    rm -f /tmp/google-chrome-stable_current_amd64.deb && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install gogcli
+RUN curl -L https://github.com/steipete/gogcli/releases/download/v0.6.1/gogcli_0.6.1_linux_amd64.tar.gz \
+  | tar -xz -C /usr/local/bin && chmod +x /usr/local/bin/gog
+
+# Setup linuxbrew user and install Homebrew packages
+RUN useradd -m -s /bin/bash linuxbrew && \
+    echo 'linuxbrew ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
+
+USER linuxbrew
+WORKDIR /home/linuxbrew
+
+RUN /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+ENV PATH="/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:${PATH}"
+
+RUN brew install Hyaxia/tap/blogwatcher && \
+	brew install uv
+
+USER root
+## END CUSTOM
+
+# Install Bun (required for build scripts)
+RUN curl -fsSL https://bun.sh/install | bash
+ENV PATH="/root/.bun/bin:${PATH}"
+
+RUN corepack enable
+
+WORKDIR /app
+
+ARG OPENCLAW_DOCKER_APT_PACKAGES=""
+RUN if [ -n "$OPENCLAW_DOCKER_APT_PACKAGES" ]; then \
+      apt-get update && \
+      DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends $OPENCLAW_DOCKER_APT_PACKAGES && \
+      apt-get clean && \
+      rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*; \
+    fi
+
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
+COPY ui/package.json ./ui/package.json
+COPY scripts ./scripts
+
+RUN pnpm install --frozen-lockfile
+
+COPY . .
+
+RUN sed -i 's/antigravity\/1.11.5/antigravity\/1.15.8/g' node_modules/@mariozechner/pi-ai/dist/providers/google-gemini-cli.js
+
+RUN OPENCLAW_A2UI_SKIP_MISSING=1 pnpm build
+# Force pnpm for UI build (Bun may fail on ARM/Synology architectures)
+ENV OPENCLAW_PREFER_PNPM=1
+RUN pnpm ui:build
+
+RUN bun install -g clawdhub undici
+
+# Install skills in the container itself
+#RUN clawdhub install self-improving-agent
+
+ENV NODE_ENV=production
+
+CMD ["node","dist/index.js"]
