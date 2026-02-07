@@ -55,8 +55,6 @@ RUN pnpm install --frozen-lockfile
 
 COPY . .
 
-RUN sed -i 's/antigravity\/1.11.5/antigravity\/1.15.8/g' node_modules/@mariozechner/pi-ai/dist/providers/google-gemini-cli.js
-
 RUN OPENCLAW_A2UI_SKIP_MISSING=1 pnpm build
 # Force pnpm for UI build (Bun may fail on ARM/Synology architectures)
 ENV OPENCLAW_PREFER_PNPM=1
@@ -69,4 +67,7 @@ RUN bun install -g clawdhub undici
 
 ENV NODE_ENV=production
 
-CMD ["node","dist/index.js"]
+RUN chown -R node:node /app
+USER node
+
+CMD ["node","dist/index.js", "gateway"]
