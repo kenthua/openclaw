@@ -41,8 +41,8 @@ jobs:
         run: |
           # Get the latest semantic version tag from upstream
           # Using git describe or tag sorting to find the latest version
-          # Assuming standard vX.Y.Z format
-          LATEST_TAG=$(git tag -l | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n1)
+          # Assuming standard vX.Y.Z format, optionally with -X suffix
+          LATEST_TAG=$(git tag -l | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9]+)?$' | sort -V | tail -n1)
 
           if [ -z "$LATEST_TAG" ]; then
              echo "::warning::No matching tags found from upstream."
