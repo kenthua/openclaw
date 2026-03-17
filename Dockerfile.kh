@@ -106,8 +106,6 @@ LABEL org.opencontainers.image.source="https://github.com/openclaw/openclaw" \
   org.opencontainers.image.title="OpenClaw" \
   org.opencontainers.image.description="OpenClaw gateway and CLI runtime container image"
 
-WORKDIR /app
-
 ## BEGIN CUSTOM
 # Install all apt packages in one layer (Chrome + utilities)
 RUN apt-get update && \
@@ -138,6 +136,8 @@ RUN brew install Hyaxia/tap/blogwatcher && \
 
 USER root
 ## END CUSTOM
+
+WORKDIR /app
 
 # Install system utilities present in bookworm but missing in bookworm-slim.
 # On the full bookworm image these are already installed (apt-get is a no-op).
